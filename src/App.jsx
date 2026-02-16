@@ -1,33 +1,43 @@
-import React, { Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
-import InfiniteWorld from './components/InfiniteWorld';
-import Overlay from './components/Overlay';
-import CameraController from './components/CameraController';
-import { Stats } from '@react-three/drei';
+import React, { useState, useEffect } from 'react';
+import Gallery from './components/Gallery';
+import Lightbox from './components/Lightbox';
 
 function App() {
+  const [images, setImages] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(null);
+
+  useEffect(() => {
+    fetch('/images.json')
+      .then(res => res.json())
+      .then(setImages)
+      .catch(console.error);
+  }, []);
+
+  const openLightbox = (index) => setSelectedIndex(index);
+  const closeLightbox = () => setSelectedIndex(null);
+
+  const showNext = () => {
+    setSelectedIndex(prev => (prev + 1) % images.length);
+  };
+
+  const showPrev = () => {
+    setSelectedIndex(prev => (prev - 1 + images.length) % images.length);
+  };
+
   return (
-    <>
-      <Overlay />
-      <Canvas
-        camera={{ position: [0, 0, 0], fov: 60 }}
-        dpr={[1, 2]} // Performance optimization
-        gl={{
-          antialias: false,
-          powerPreference: 'high-performance'
-        }}
-      >
-        <color attach="background" args={['#fafafa']} />
+    <div className="App">
+      <h1 style={{ textAlign: 'center', color: '#333', marginTop: '2rem', marginBottom: '2rem', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '1rem' }}>_bunworld</h1>
+      <Gallery images={images} onImageClick={openLightbox} />
 
-        <Suspense fallback={null}>
-          <InfiniteWorld />
-        </Suspense>
-
-        <CameraController />
-
-        {/* <Stats /> */}  {/* Uncomment for FPS stats */}
-      </Canvas>
-    </>
+      {selectedIndex !== null && (
+        <Lightbox
+          image={images[selectedIndex]}
+          onClose={closeLightbox}
+          onNext={showNext}
+          onPrev={showPrev}
+        />
+      )}
+    </div>
   );
 }
 
