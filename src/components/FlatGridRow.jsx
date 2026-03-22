@@ -47,7 +47,7 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
       {images.map((src, index) => (
         <Image
           key={`${index}-${src}`}
-          url={src}
+          url={`https://reil.studio/bun${src}`}
           position={[0, 0, 0]} 
           scale={[imageWidth, imageHeight]} 
           transparent
