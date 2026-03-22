@@ -26,7 +26,7 @@ export function SplashVideo({ onComplete }) {
       alignItems: 'center'
     }}>
       <video
-        src="/images/bunontherun.mp4"
+        src="https://reil.studio/bun/images/bunontherun.mp4"
         autoPlay
         muted // Muted to guarantee autoplay succeeds on most browsers
         playsInline
