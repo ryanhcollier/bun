@@ -1,44 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import Gallery from './components/Gallery';
-import Lightbox from './components/Lightbox';
+import React, { Suspense, useState } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import * as THREE from 'three';
+import { FlatGrid } from './components/FlatGrid';
+import { SplashVideo } from './components/SplashVideo';
 
-function App() {
-  const [images, setImages] = useState([]);
-  const [selectedIndex, setSelectedIndex] = useState(null);
-
-  useEffect(() => {
-    fetch('/images.json')
-      .then(res => res.json())
-      .then(setImages)
-      .catch(console.error);
-  }, []);
-
-  const openLightbox = (index) => setSelectedIndex(index);
-  const closeLightbox = () => setSelectedIndex(null);
-
-  const showNext = () => {
-    setSelectedIndex(prev => (prev + 1) % images.length);
-  };
-
-  const showPrev = () => {
-    setSelectedIndex(prev => (prev - 1 + images.length) % images.length);
-  };
+export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
 
   return (
-    <div className="App">
-      <h1 style={{ textAlign: 'center', color: '#333', marginTop: '2rem', marginBottom: '2rem', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '1rem' }}>_bunworld</h1>
-      <Gallery images={images} onImageClick={openLightbox} />
+    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', position: 'relative' }}>
+      {showSplash && <SplashVideo onComplete={() => setShowSplash(false)} />}
+      
+      <Canvas camera={{ position: [0, 0, 8], fov: 45 }}>
+        <Suspense fallback={null}>
+          <FlatGrid />
+        </Suspense>
 
-      {selectedIndex !== null && (
-        <Lightbox
-          image={images[selectedIndex]}
-          onClose={closeLightbox}
-          onNext={showNext}
-          onPrev={showPrev}
+        <OrbitControls 
+          enableRotate={false}
+          enablePan={true}
+          enableZoom={true}
+          minDistance={1.5}
+          maxDistance={16.5}
+          mouseButtons={{
+            LEFT: THREE.MOUSE.PAN,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.NONE
+          }}
+          touches={{
+            ONE: THREE.TOUCH.PAN,
+            TWO: THREE.TOUCH.DOLLY_PAN
+          }}
         />
-      )}
+      </Canvas>
     </div>
   );
 }
-
-export default App;
