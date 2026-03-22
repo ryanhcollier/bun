@@ -1,23 +1,41 @@
 import React, { Suspense, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { FlatGrid } from './components/FlatGrid';
-import { SplashVideo } from './components/SplashVideo';
+
+function IntroCamera({ onComplete }) {
+  const duration = 3.5;
+  
+  useFrame((state) => {
+    const t = Math.min(1.0, state.clock.elapsedTime / duration);
+    // Cinematic ease-in-out Smoothstep smoothing
+    const smoothT = t * t * (3 - 2 * t);
+    
+    // Pull back from 5.3 (3x3 grid) to 16.5 (8-row grid)
+    state.camera.position.z = 5.3 + (16.5 - 5.3) * smoothT;
+    
+    if (t >= 1.0) {
+      onComplete(); // Triggers the OrbitControls unlock
+    }
+  });
+  
+  return null;
+}
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
+  const [introDone, setIntroDone] = useState(false);
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', position: 'relative' }}>
-      {showSplash && <SplashVideo onComplete={() => setShowSplash(false)} />}
-      
-      <Canvas camera={{ position: [0, 0, 8], fov: 45 }}>
+      <Canvas camera={{ position: [0, 0, 5.3], fov: 45 }}>
+        {!introDone && <IntroCamera onComplete={() => setIntroDone(true)} />}
         <Suspense fallback={null}>
           <FlatGrid />
         </Suspense>
 
         <OrbitControls 
+          enabled={introDone}
           enableRotate={false}
           enablePan={true}
           enableZoom={true}

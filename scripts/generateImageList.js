@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const publicImagesDir = path.join(process.cwd(), 'public', 'images');
+const publicImagesDir = path.join(process.cwd(), '..', '_Fullsize');
 const outputFilePath = path.join(process.cwd(), 'src', 'imageList.json');
 
 const files = fs.readdirSync(publicImagesDir);

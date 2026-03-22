@@ -38,6 +38,33 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
         if (wrappedX < -totalWidth / 2) wrappedX += totalWidth;
         
         child.position.x = camX + wrappedX;
+
+        // Intro Spring Animation Math
+        // wrappedX and wrappedY precisely represent the visible screen-space coordinate offsets from the center camera crosshair
+        const distanceToCenter = Math.sqrt(wrappedX * wrappedX + wrappedY * wrappedY);
+        
+        // 0.15s staggering delay per physical unit of distance outward from the center
+        const activationDelay = distanceToCenter * 0.18;
+        const introElapsed = state.clock.elapsedTime;
+        
+        if (introElapsed < activationDelay) {
+          // Completely hidden before activation triggers
+          child.visible = false;
+          child.scale.set(0.001, 0.001, 1);
+        } else {
+          child.visible = true;
+          const t = introElapsed - activationDelay;
+          if (t < 1.0) {
+            // Procedural bouncy spring formula: rapid acceleration with physical damping
+            const scaleAnim = 1 - Math.exp(-8 * t) * Math.cos(12 * t);
+            const currentScale = Math.max(0.001, scaleAnim);
+            
+            child.scale.set(imageWidth * currentScale, imageHeight * currentScale, 1);
+          } else {
+            // Settle exactly at target mathematically
+            child.scale.set(imageWidth, imageHeight, 1);
+          }
+        }
       });
     }
   });
@@ -47,7 +74,7 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
       {images.map((src, index) => (
         <Image
           key={`${index}-${src}`}
-          url={`https://reil.studio/bun${src}`}
+          url={`/remote-assets${src.replace('/images', '')}`}
           position={[0, 0, 0]} 
           scale={[imageWidth, imageHeight]} 
           transparent

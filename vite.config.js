@@ -9,7 +9,7 @@ export default defineConfig({
       '/remote-assets': {
         target: 'https://reil.studio',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/remote-assets/, '/bun/image')
+        rewrite: (path) => path.replace(/^\/remote-assets/, '/bun/images')
       }
     }
   }
