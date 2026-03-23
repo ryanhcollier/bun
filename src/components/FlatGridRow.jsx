@@ -1,6 +1,35 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Image } from '@react-three/drei';
+
+function LazyGridImage({ src, imageWidth, imageHeight, activationDelay }) {
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    // Mount the React Suspense Image slightly before the animation reaches it so it is fully pre-loaded in VRAM
+    const preLoadDelay = Math.max(0, (activationDelay - 0.4) * 1000);
+    const timer = setTimeout(() => {
+      setShouldLoad(true);
+    }, preLoadDelay);
+    
+    return () => clearTimeout(timer);
+  }, [activationDelay]);
+
+  return (
+    <group>
+      {shouldLoad && (
+        <Image
+          url={`/remote-assets${src.replace('/images', '')}`}
+          scale={[imageWidth, imageHeight]} 
+          transparent
+          opacity={1.0}
+          toneMapped={false}
+          radius={0.05}
+        />
+      )}
+    </group>
+  );
+}
 
 export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth, gapY }) {
   const groupRef = useRef();
@@ -14,6 +43,11 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
 
   // Center the initial layout so (0,0) is roughly the middle
   const baseY = (totalHeight / 2) - (spacingY / 2) - (rowIndex * spacingY);
+
+  // Calculate static Y position expected at origin for lazy-loading distance logic
+  let originWrappedY = baseY % totalHeight;
+  if (originWrappedY > totalHeight / 2) originWrappedY -= totalHeight;
+  if (originWrappedY < -totalHeight / 2) originWrappedY += totalHeight;
 
   useFrame((state) => {
     const camX = state.camera.position.x;
@@ -40,7 +74,6 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
         child.position.x = camX + wrappedX;
 
         // Intro Spring Animation Math
-        // wrappedX and wrappedY precisely represent the visible screen-space coordinate offsets from the center camera crosshair
         const distanceToCenter = Math.sqrt(wrappedX * wrappedX + wrappedY * wrappedY);
         
         // 0.15s staggering delay per physical unit of distance outward from the center
@@ -55,14 +88,15 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
           child.visible = true;
           const t = introElapsed - activationDelay;
           if (t < 1.0) {
-            // Procedural bouncy spring formula: rapid acceleration with physical damping
+            // Procedural bouncy spring formula
             const scaleAnim = 1 - Math.exp(-8 * t) * Math.cos(12 * t);
             const currentScale = Math.max(0.001, scaleAnim);
             
-            child.scale.set(imageWidth * currentScale, imageHeight * currentScale, 1);
+            // The outer group manages the uniform scale multiplier, inner Image retains aspect mapping
+            child.scale.set(currentScale, currentScale, 1);
           } else {
             // Settle exactly at target mathematically
-            child.scale.set(imageWidth, imageHeight, 1);
+            child.scale.set(1, 1, 1);
           }
         }
       });
@@ -71,18 +105,25 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
 
   return (
     <group ref={groupRef}>
-      {images.map((src, index) => (
-        <Image
-          key={`${index}-${src}`}
-          url={`/remote-assets${src.replace('/images', '')}`}
-          position={[0, 0, 0]} 
-          scale={[imageWidth, imageHeight]} 
-          transparent
-          opacity={1.0}
-          toneMapped={false}
-          radius={0.05}
-        />
-      ))}
+      {images.map((src, index) => {
+        const baseX = index * spacingX;
+        let originWrappedX = baseX % totalWidth;
+        if (originWrappedX > totalWidth / 2) originWrappedX -= totalWidth;
+        if (originWrappedX < -totalWidth / 2) originWrappedX += totalWidth;
+        
+        const staticDistanceToCenter = Math.sqrt(originWrappedX * originWrappedX + originWrappedY * originWrappedY);
+        const activationDelay = staticDistanceToCenter * 0.18;
+
+        return (
+          <LazyGridImage
+            key={`${index}-${src}`}
+            src={src}
+            imageWidth={imageWidth}
+            imageHeight={imageHeight}
+            activationDelay={activationDelay}
+          />
+        );
+      })}
     </group>
   );
 }
