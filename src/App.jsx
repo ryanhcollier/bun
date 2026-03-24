@@ -13,11 +13,12 @@ window.gridState = {
 };
 
 window.updateLoadingUI = () => {
-  const el = document.getElementById('loading-overlay');
-  if (el) {
+  const el = document.getElementById('loading-overlay-badge');
+  const container = document.getElementById('loading-overlay-container');
+  if (el && container) {
     if (window.gridState.loadedCount >= window.gridState.totalImages && window.gridState.totalImages > 0) {
-      el.style.opacity = '0';
-      setTimeout(() => el.style.display = 'none', 500);
+      container.style.opacity = '0';
+      setTimeout(() => container.style.display = 'none', 500);
       window.gridState.allLoaded = true;
     } else {
       const pct = window.gridState.totalImages > 0 
@@ -37,7 +38,7 @@ function IntroCamera({ onComplete }) {
     if (!window.gridState.allLoaded) {
       state.camera.position.z = 2.5; 
       state.camera.position.x = 0;
-      state.camera.position.y = 0.9; // Mathematically centered precisely on Row 5
+      state.camera.position.y = 0; // Mathematically centered precisely on Row 6 (exactly Y=0.0 now!)
       return;
     }
 
@@ -45,15 +46,15 @@ function IntroCamera({ onComplete }) {
     // Cap delta at 0.1s to prevent teleporting
     elapsedRef.current += Math.min(delta, 0.1);
     const elapsed = elapsedRef.current;
-    
+
     const t = Math.min(1.0, elapsed / duration);
     // Cinematic ease-in-out Smoothstep smoothing
     const smoothT = t * t * (3 - 2 * t);
-    
+
     // Pull back from 2.5 (1 image) to 16.5 (total grid)
     state.camera.position.z = 2.5 + (16.5 - 2.5) * smoothT;
-    state.camera.position.y = 0.9 + (0 - 0.9) * smoothT;
-    
+    state.camera.position.y = 0; // Ensure camera remains centered at Y=0.0 during pullback
+
     if (t >= 1.0) {
       onComplete(); // Triggers the OrbitControls unlock
     }
@@ -69,30 +70,40 @@ export default function App() {
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#0a0a0a' }}>
       {/* UI Overlay layered above WebGL canvas */}
       <div 
-        id="loading-overlay"
+        id="loading-overlay-container"
         style={{
           position: 'absolute',
           top: 0, left: 0, width: '100%', height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          color: '#ffffff',
-          fontFamily: 'sans-serif',
-          fontSize: '1.2rem',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
           pointerEvents: 'none',
           zIndex: 10,
           transition: 'opacity 0.5s ease-out'
         }}
       >
-        Loading Gallery... 0%
+        <div id="loading-overlay-badge" style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: '#ffffff',
+            padding: '20px 40px',
+            borderRadius: '12px',
+            fontFamily: 'sans-serif',
+            fontSize: '1.2rem',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)'
+        }}>
+          Loading Gallery... 0%
+        </div>
       </div>
 
-      <Canvas camera={{ position: [0, 0, 5.3], fov: 45 }}>
+      <Canvas camera={{ position: [0, 0, 2.5], fov: 45 }}>
         <Suspense fallback={null}>
           <Environment preset="city" />
+        </Suspense>
+
+        <Suspense fallback={null}>
           <ambientLight intensity={0.6} />
           
           <FlatGrid />

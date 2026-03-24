@@ -109,8 +109,8 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
         
         child.position.x = camX + wrappedX;
 
-        // Shift spiral origin perfectly onto the initial tightly zoomed camera coordinate
-        const shiftedY = wrappedY - 0.9;
+        // Origin is zero now
+        const shiftedY = wrappedY;
 
         // Intro Procedural Spiral Math
         const distanceToCenter = Math.sqrt(wrappedX * wrappedX + shiftedY * shiftedY);
@@ -158,7 +158,7 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
         if (originWrappedX > totalWidth / 2) originWrappedX -= totalWidth;
         if (originWrappedX < -totalWidth / 2) originWrappedX += totalWidth;
         
-        const shiftedOriginY = originWrappedY - 0.9;
+        const shiftedOriginY = originWrappedY;
         const staticDistanceToCenter = Math.sqrt(originWrappedX * originWrappedX + shiftedOriginY * shiftedOriginY);
         const angle = Math.atan2(shiftedOriginY, originWrappedX);
         const normalizedAngle = (angle + Math.PI) / (Math.PI * 2);

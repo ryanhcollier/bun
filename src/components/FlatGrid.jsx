@@ -23,7 +23,7 @@ const splitIntoRows = (array, numRows) => {
 };
 
 export function FlatGrid() {
-  const numRows = 12; // Increased to 12 to safely allow 8-9 fully visible rows at max zoom without pop-in
+  const numRows = 13; // Changed to 13 (odd number) to guarantee a row exists precisely at Y=0.0
   const imageHeight = 1.6;
   const imageWidth = 2.4; 
   const gapY = 0.2; 
