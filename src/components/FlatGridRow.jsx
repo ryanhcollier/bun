@@ -2,18 +2,37 @@ import React, { useRef, useState, useEffect, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Image } from '@react-three/drei';
 
-function LazyGridImage({ src, imageWidth, imageHeight, activationDelay }) {
-  const [shouldLoad, setShouldLoad] = useState(false);
+function ImageLoadNotifier({ isFocal }) {
+  useEffect(() => {
+    if (window.gridState) {
+      window.gridState.loadedCount++;
+      if (isFocal) {
+        window.gridState.centerLoaded = true;
+      }
+      if (window.updateLoadingUI) window.updateLoadingUI();
+    }
+  }, [isFocal]);
+  return null;
+}
+
+function LazyGridImage({ src, imageWidth, imageHeight, activationDelay, isFocal }) {
+  const [shouldLoad, setShouldLoad] = useState(isFocal); // Focal starts loading instantly
 
   useEffect(() => {
-    // Give the network 1.5 seconds of headstart to fetch the texture into VRAM before the physical animation spring reaches it
-    const preLoadDelay = Math.max(0, (activationDelay - 1.5) * 1000);
-    const timer = setTimeout(() => {
-      setShouldLoad(true);
-    }, preLoadDelay);
+    if (isFocal) return; // Network already active
+
+    // Gate all non-focal network requests until the focal center image completes fetching
+    const timer = setInterval(() => {
+      if (window.gridState && window.gridState.centerLoaded) {
+        clearInterval(timer);
+        // Stagger the network requests in a spiral to prevent WebGL Context Loss or browser crashes
+        const spiralThreadStagger = activationDelay * 1000;
+        setTimeout(() => setShouldLoad(true), spiralThreadStagger);
+      }
+    }, 100);
     
-    return () => clearTimeout(timer);
-  }, [activationDelay]);
+    return () => clearInterval(timer);
+  }, [isFocal, activationDelay]);
 
   return (
     <group>
@@ -28,6 +47,7 @@ function LazyGridImage({ src, imageWidth, imageHeight, activationDelay }) {
             toneMapped={false}
             radius={0.05}
           />
+          <ImageLoadNotifier isFocal={isFocal} />
         </Suspense>
       ) : (
         <mesh scale={[imageWidth, imageHeight]} visible={false}>
@@ -60,6 +80,9 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
   const elapsedRef = useRef(0);
 
   useFrame((state, delta) => {
+    // Freeze procedural animation until all 372 items resolve their network Suspense and the pullback begins
+    if (!window.gridState || !window.gridState.allLoaded) return;
+
     // Cap delta at 0.1s to prevent teleporting when WebGL shaders compile and freeze the main thread
     elapsedRef.current += Math.min(delta, 0.1);
     const introElapsed = elapsedRef.current;
@@ -86,17 +109,25 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
         
         child.position.x = camX + wrappedX;
 
-        // Intro Procedural Spiral Math
-        const distanceToCenter = Math.sqrt(wrappedX * wrappedX + wrappedY * wrappedY);
-        const angle = Math.atan2(wrappedY, wrappedX);
-        const normalizedAngle = (angle + Math.PI) / (Math.PI * 2);
+        // Shift spiral origin perfectly onto the initial tightly zoomed camera coordinate
+        const shiftedY = wrappedY - 0.9;
 
-        // 1.5 second global delay un-freezes JS to aggressively pre-fetch textures without clock interference
-        const GLOBAL_START_DELAY = 1.5;
-        // Radial distance creates rings, angle offsets sequential delays around the ring to create a 1-by-1 continuous spiral
-        const activationDelay = GLOBAL_START_DELAY + (distanceToCenter * 0.18) + (normalizedAngle * 0.16);
+        // Intro Procedural Spiral Math
+        const distanceToCenter = Math.sqrt(wrappedX * wrappedX + shiftedY * shiftedY);
+        const angle = Math.atan2(shiftedY, wrappedX);
+        const normalizedAngle = (angle + Math.PI) / (Math.PI * 2);
         
-        if (introElapsed < activationDelay) {
+        // Exact tile targeted by initial zoom
+        const isFocal = distanceToCenter < 0.1;
+
+        // Radial distance creates rings, angle offsets sequential delays around the ring to create a 1-by-1 continuous spiral
+        const activationDelay = (distanceToCenter * 0.18) + (normalizedAngle * 0.16);
+        
+        if (isFocal) {
+          // The focal tile is already framed exclusively, skip bounding spring animation and reveal instantly
+          child.visible = true;
+          child.scale.set(1, 1, 1);
+        } else if (introElapsed < activationDelay) {
           // Keep it logically visible but physically scaled to zero so it pops-in exactly on its spiral frame
           child.visible = true;
           child.scale.set(0.001, 0.001, 1);
@@ -127,12 +158,13 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
         if (originWrappedX > totalWidth / 2) originWrappedX -= totalWidth;
         if (originWrappedX < -totalWidth / 2) originWrappedX += totalWidth;
         
-        const staticDistanceToCenter = Math.sqrt(originWrappedX * originWrappedX + originWrappedY * originWrappedY);
-        const angle = Math.atan2(originWrappedY, originWrappedX);
+        const shiftedOriginY = originWrappedY - 0.9;
+        const staticDistanceToCenter = Math.sqrt(originWrappedX * originWrappedX + shiftedOriginY * shiftedOriginY);
+        const angle = Math.atan2(shiftedOriginY, originWrappedX);
         const normalizedAngle = (angle + Math.PI) / (Math.PI * 2);
         
-        const GLOBAL_START_DELAY = 1.5;
-        const activationDelay = GLOBAL_START_DELAY + (staticDistanceToCenter * 0.18) + (normalizedAngle * 0.16);
+        const isFocal = staticDistanceToCenter < 0.1;
+        const activationDelay = (staticDistanceToCenter * 0.18) + (normalizedAngle * 0.16);
 
         return (
           <LazyGridImage
@@ -141,6 +173,7 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
             imageWidth={imageWidth}
             imageHeight={imageHeight}
             activationDelay={activationDelay}
+            isFocal={isFocal}
           />
         );
       })}

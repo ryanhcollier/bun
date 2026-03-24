@@ -32,6 +32,9 @@ export function FlatGrid() {
     // We multiply the list to guarantee exceptionally wide rows that can cover any ultra-wide or full-screen aspect ratio 
     // at the maximum zoom out level without exposing the horizontal wrapping void.
     const multipliedList = [...shuffledImageList, ...shuffledImageList, ...shuffledImageList];
+    if (window.gridState) {
+      window.gridState.totalImages = multipliedList.length;
+    }
     return splitIntoRows(multipliedList, numRows);
   }, []);
 
