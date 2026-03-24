@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Image } from '@react-three/drei';
 
@@ -6,8 +6,8 @@ function LazyGridImage({ src, imageWidth, imageHeight, activationDelay }) {
   const [shouldLoad, setShouldLoad] = useState(false);
 
   useEffect(() => {
-    // Mount the React Suspense Image slightly before the animation reaches it so it is fully pre-loaded in VRAM
-    const preLoadDelay = Math.max(0, (activationDelay - 0.4) * 1000);
+    // Give the network 1.5 seconds of headstart to fetch the texture into VRAM before the physical animation spring reaches it
+    const preLoadDelay = Math.max(0, (activationDelay - 1.5) * 1000);
     const timer = setTimeout(() => {
       setShouldLoad(true);
     }, preLoadDelay);
@@ -17,15 +17,23 @@ function LazyGridImage({ src, imageWidth, imageHeight, activationDelay }) {
 
   return (
     <group>
-      {shouldLoad && (
-        <Image
-          url={`/remote-assets${src.replace('/images', '')}`}
-          scale={[imageWidth, imageHeight]} 
-          transparent
-          opacity={1.0}
-          toneMapped={false}
-          radius={0.05}
-        />
+      {shouldLoad ? (
+        // The fallback is a visible dark grey shape so the bouncy spring animation plays smoothly even if the texture is still loading over a slow network connection
+        <Suspense fallback={<mesh scale={[imageWidth, imageHeight]}><planeGeometry /><meshBasicMaterial color="#444444" toneMapped={false} /></mesh>}>
+          <Image
+            url={`/remote-assets${src.replace('/images', '')}`}
+            scale={[imageWidth, imageHeight]} 
+            transparent
+            opacity={1.0}
+            toneMapped={false}
+            radius={0.05}
+          />
+        </Suspense>
+      ) : (
+        <mesh scale={[imageWidth, imageHeight]} visible={false}>
+          <planeGeometry />
+          <meshBasicMaterial />
+        </mesh>
       )}
     </group>
   );
@@ -49,7 +57,12 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
   if (originWrappedY > totalHeight / 2) originWrappedY -= totalHeight;
   if (originWrappedY < -totalHeight / 2) originWrappedY += totalHeight;
 
-  useFrame((state) => {
+  const elapsedRef = useRef(0);
+
+  useFrame((state, delta) => {
+    // Cap delta at 0.1s to prevent teleporting when WebGL shaders compile and freeze the main thread
+    elapsedRef.current += Math.min(delta, 0.1);
+    const introElapsed = elapsedRef.current;
     const camX = state.camera.position.x;
     const camY = state.camera.position.y;
     
@@ -73,16 +86,19 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
         
         child.position.x = camX + wrappedX;
 
-        // Intro Spring Animation Math
+        // Intro Procedural Spiral Math
         const distanceToCenter = Math.sqrt(wrappedX * wrappedX + wrappedY * wrappedY);
-        
-        // 0.15s staggering delay per physical unit of distance outward from the center
-        const activationDelay = distanceToCenter * 0.18;
-        const introElapsed = state.clock.elapsedTime;
+        const angle = Math.atan2(wrappedY, wrappedX);
+        const normalizedAngle = (angle + Math.PI) / (Math.PI * 2);
+
+        // 1.5 second global delay un-freezes JS to aggressively pre-fetch textures without clock interference
+        const GLOBAL_START_DELAY = 1.5;
+        // Radial distance creates rings, angle offsets sequential delays around the ring to create a 1-by-1 continuous spiral
+        const activationDelay = GLOBAL_START_DELAY + (distanceToCenter * 0.18) + (normalizedAngle * 0.16);
         
         if (introElapsed < activationDelay) {
-          // Completely hidden before activation triggers
-          child.visible = false;
+          // Keep it logically visible but physically scaled to zero so it pops-in exactly on its spiral frame
+          child.visible = true;
           child.scale.set(0.001, 0.001, 1);
         } else {
           child.visible = true;
@@ -112,7 +128,11 @@ export function FlatGridRow({ images, rowIndex, numRows, imageHeight, imageWidth
         if (originWrappedX < -totalWidth / 2) originWrappedX += totalWidth;
         
         const staticDistanceToCenter = Math.sqrt(originWrappedX * originWrappedX + originWrappedY * originWrappedY);
-        const activationDelay = staticDistanceToCenter * 0.18;
+        const angle = Math.atan2(originWrappedY, originWrappedX);
+        const normalizedAngle = (angle + Math.PI) / (Math.PI * 2);
+        
+        const GLOBAL_START_DELAY = 1.5;
+        const activationDelay = GLOBAL_START_DELAY + (staticDistanceToCenter * 0.18) + (normalizedAngle * 0.16);
 
         return (
           <LazyGridImage

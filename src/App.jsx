@@ -6,9 +6,18 @@ import { FlatGrid } from './components/FlatGrid';
 
 function IntroCamera({ onComplete }) {
   const duration = 3.5;
+  const startDelay = 1.5;
+  const elapsedRef = React.useRef(0);
   
-  useFrame((state) => {
-    const t = Math.min(1.0, state.clock.elapsedTime / duration);
+  useFrame((state, delta) => {
+    // Cap delta at 0.1s to prevent teleporting when WebGL shaders compile and freeze the main thread
+    elapsedRef.current += Math.min(delta, 0.1);
+    const elapsed = elapsedRef.current;
+    
+    if (elapsed < startDelay) return;
+    
+    const animationElapsed = elapsed - startDelay;
+    const t = Math.min(1.0, animationElapsed / duration);
     // Cinematic ease-in-out Smoothstep smoothing
     const smoothT = t * t * (3 - 2 * t);
     
