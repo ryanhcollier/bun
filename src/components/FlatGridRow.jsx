@@ -40,7 +40,7 @@ function LazyGridImage({ src, imageWidth, imageHeight, activationDelay, isFocal 
         // The fallback is a visible dark grey shape so the bouncy spring animation plays smoothly even if the texture is still loading over a slow network connection
         <Suspense fallback={<mesh scale={[imageWidth, imageHeight]}><planeGeometry /><meshBasicMaterial color="#444444" toneMapped={false} /></mesh>}>
           <Image
-            url={`/remote-assets${src.replace('/images', '')}`}
+            url={import.meta.env.DEV ? `/remote-assets${src.replace('/images', '')}` : `/bun/images${src.replace('/images', '')}`}
             scale={[imageWidth, imageHeight]} 
             transparent
             opacity={1.0}

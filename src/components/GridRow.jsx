@@ -27,7 +27,7 @@ export function GridRow({ images, y, radius, direction, speed = 0.05, imageWidth
         return (
           <Image
             key={`${index}-${src}`}
-            url={src}
+            url={import.meta.env.DEV ? `/remote-assets${src.replace('/images', '')}` : `/bun/images${src.replace('/images', '')}`}
             position={[x, 0, z]}
             rotation={[0, angle, 0]}
             scale={[imageWidth, imageHeight]} 
